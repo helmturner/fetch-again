@@ -45,6 +45,24 @@
   "config": {
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"
+    },
+    "standard-version": {
+      "bumpFiles": [
+        {
+          "filename": "./package-lock.json",
+          "updater": "json"
+        }
+      ],
+      "packageFiles": [
+        {
+          "filename": "./dist/package.json",
+          "type": "json"
+        },
+        {
+          "filename": "./package.json",
+          "updater": "json"
+        }
+      ]
     }
   }
 }
