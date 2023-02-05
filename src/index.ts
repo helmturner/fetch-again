@@ -1,21 +1,76 @@
-export type RetryOptions<T> = T extends (
-  ...arguments_: infer Arguments
-) => Promise<infer Result>
-  ? {
-      fetchFn?: ((...arguments_: Arguments) => Promise<Result>) | undefined;
-      retries?: number | undefined;
-      factor?: number | undefined;
-      minTimeout?: number | undefined;
-      maxTimeout?: number | undefined;
-      randomize?: boolean | undefined;
-      onRetry?: ((result: Error | Result, count: number) => void) | undefined;
-      retryOn?:
-        | ((result: Error | Result, count: number) => boolean)
-        | undefined;
-    }
+
+
+
+
+/**
+ * The options object for the fetchWithRetry function.
+ * @template TFetchFn The type of the function passed as fetchFn. If not
+ * provided, the global fetch function will be used. If the global fetch
+ * is not available, node-fetch will be used, if installed.
+ * @template TErrorType The type of the error that will be thrown if the
+ * request cannot be retried. Defaults to the return type of the fetchFn.
+ *
+ * @example (using axios)
+ * ```typescript
+ * const options: RetryOptions<typeof axios.get<SomeRemoteAPIData>, AxiosError> = {
+ *   fetchFn: axios.get,
+ *   retries: 3,
+ *   factor: 2,
+ *   minTimeout: 1000,
+ *   maxTimeout: 10_000,
+ *   randomize: false,
+ *   retryOn: (result, count) => {
+ *     // `result` is typed as either TErrorType or the return type of TFetchFn here.
+ *   },
+ *   onRetry: (result, count) => {
+ *     // `result` is typed as either TErrorType or the return type of TFetchFn here.
+ *   }
+ * ```
+ */
+
+export type RetryOptions<
+  TFetchFn extends
+    | ((...arguments_: any[]) => Promise<any>)
+    | undefined = undefined,
+  TErrorType = TFetchFn extends undefined
+    ? ResultOf<DefaultFetch>
+    : ResultOf<TFetchFn>
+> = Omit<
+  Parameters<
+    TFetchFn extends undefined
+      ? typeof fetchWithRetry<
+          Parameters<DefaultFetch>,
+          ResultOf<DefaultFetch>,
+          DefaultFetch,
+          TErrorType
+        >
+      : typeof fetchWithRetry<
+          Parameters<TFetchFn>,
+          ResultOf<TFetchFn>,
+          TFetchFn,
+          TErrorType
+        >
+  >[0],
+  "fetchFn" | "retryOn"
+> &
+  (TFetchFn extends undefined
+    ? {
+        fetchFn?: undefined;
+        retryOn?: (result: ResultOf<DefaultFetch>, count: number) => boolean;
+      }
+    : {
+        fetchFn: TFetchFn;
+        retryOn: (result: ResultOf<TFetchFn>, count: number) => boolean;
+      });
+
+type DefaultFetch = ResultOf<typeof getDefaultFetchImplementation>;
+type ResultOf<T> = T extends (...args: any[]) => Promise<infer P>
+  ? P
+  : T extends (...args: any[]) => infer R
+  ? R
   : never;
 
-const defaultRetryTest = <T>(result: Error | T, count: number) => {
+const defaultRetryTest = (result: unknown, count: number) => {
   if (count === 0) return false;
 
   if (typeof result !== "object") {
@@ -25,7 +80,6 @@ const defaultRetryTest = <T>(result: Error | T, count: number) => {
   }
 
   if (result === null) return true;
-  if (result instanceof Error) return true;
   if ("ok" in result) return !result.ok;
 
   const returnCode = Object.values(result).find((value): value is number => {
@@ -37,41 +91,60 @@ const defaultRetryTest = <T>(result: Error | T, count: number) => {
   }
 
   throw new TypeError(
-    "Unable to determine retriability of result. " +
-      "The fetch implementation provided may not be supported;" +
-      "Please file an issue at github.com/helmturner/fetch-again " +
-      "to request support for this fetch implementation or to report a bug."
+    "Unable to determine if request can be retried. " +
+      "If you are manually providing a fetch function, " +
+      "you must also provide a retryOn function."
   );
 };
 
-const getDefaultFetchImplementation = async () => {
+async function getDefaultFetchImplementation() {
   if (typeof fetch !== "undefined") return fetch;
-  if (typeof window !== "undefined") return window.fetch;
-  if (typeof global !== "undefined") return global.fetch;
-  if (typeof require !== "undefined") {
-    try {
-      const { default: nodeFetch } = await import("node-fetch");
-      return nodeFetch;
-    } catch {
-      throw new Error(
-        "Unable to find fetch implementation. " +
-          "Either provide a fetch function in the options object " +
-          "or install node-fetch as a dependency."
-      );
-    }
+  if (typeof window !== "undefined" && window.fetch) return window.fetch;
+  if (typeof global !== "undefined" && global.fetch) return global.fetch;
+  try {
+    const { default: nodeFetch } = await import("node-fetch");
+    return nodeFetch;
+  } catch {
+    throw new Error(
+      "Unable to find fetch implementation. " +
+        "Either pass `fetchFn` and `retryOn` in the options object " +
+        "or install `node-fetch` as a dependency."
+    );
   }
-};
+}
 
 export default async function fetchWithRetry<
-  TFetchParams extends [],
-  TReturn,
-  T extends (...arguments_: TFetchParams) => Promise<TReturn>
->(...parameters: [RetryOptions<T>, ...TFetchParams]) {
-  const [options, ...fetchArguments] = parameters;
+  TFetchParams extends any[] = any[],
+  TReturn = ResultOf<DefaultFetch>,
+  TCustomFetchFn extends
+    | ((any: any) => Promise<TReturn>)
+    | undefined = undefined,
+  TError = TReturn
+>(
+  options: (undefined extends TCustomFetchFn
+    ? { retryOn?: (result: TReturn | TError, count: number) => boolean }
+    : { retryOn: (result: TReturn | TError, count: number) => boolean }) & {
+    fetchFn?: TCustomFetchFn | undefined;
+    retries?: number | undefined;
+    factor?: number | undefined;
+    minTimeout?: number | undefined;
+    maxTimeout?: number | undefined;
+    randomize?: boolean | undefined;
+    onRetry?: ((result: TReturn | TError, count: number) => void) | undefined;
+  },
+  ...fetchArguments: TFetchParams
+): Promise<TReturn | TError> {
+  if (options.fetchFn && !options.retryOn) {
+    throw new TypeError(
+      "If you are manually providing a fetch function, " +
+        "you must also provide a retryOn function. " +
+        "If you wish to use the global fetch or node-fetch, " +
+        "do not provide a fetchFn; whichever is available will be used."
+    );
+  }
+
   const config = {
-    fetchFn:
-      options.fetchFn ??
-      ((await getDefaultFetchImplementation()) as unknown as T),
+    fetchFn: options.fetchFn ?? (await getDefaultFetchImplementation()),
     retries: options.retries ?? 3,
     factor: options.factor ?? 2,
     minTimeout: options.minTimeout ?? 1000,
@@ -90,14 +163,17 @@ export default async function fetchWithRetry<
   const onRetry = config.onRetry;
 
   return new Promise((resolve, reject) => {
+    const _fetch = config.fetchFn.bind(
+      config.fetchFn,
+      ...fetchArguments
+    ) as () => Promise<TReturn | TError>;
     const attempt = () => {
-      config.fetchFn
-        .apply(config.fetchFn, fetchArguments)
+      _fetch()
         .then((result) => handleResult(result, resolve))
         .catch((error) => handleResult(error, reject));
 
       function handleResult(
-        result: Error | TReturn,
+        result: TReturn | TError,
         resolveOrReject: typeof resolve | typeof reject
       ) {
         if (retryOn(result, retries)) {
