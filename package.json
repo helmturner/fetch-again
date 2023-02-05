@@ -3,18 +3,23 @@
   "version": "1.0.0",
   "description": "Your favorite fetch, now with configurable retries.",
   "scripts": {
+    "dev": "vitest watch",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "commit": "cz",
     "build": "rm -rf dist/lib && tsc && tsc --build tsconfig.cjs.json",
     "release": "standard-version",
-    "prepublishOnly": "npm run build && npm run release",
+    "prepublishOnly": "npm run build && npm run test && npm run coverage && npm run release",
     "publish": "npm publish ./dist --access public"
   },
   "devDependencies": {
     "@types/node": "^18.11.18",
+    "axios": "^1.3.2",
     "commitizen": "^4.3.0",
     "cz-conventional-changelog": "^3.3.0",
     "standard-version": "^9.5.0",
-    "typescript": "^4.7.4"
+    "typescript": "^4.7.4",
+    "vitest": "^0.28.4"
   },
   "optionalDependencies": {
     "node-fetch": "^2.6.7 || 3.x"

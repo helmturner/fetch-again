@@ -7,8 +7,15 @@
         "DOM"
       ],
       "declaration": true,
+      "allowSyntheticDefaultImports": true,
+      "types": [
+        "vitest/importMeta"
+      ],
       "moduleResolution": "node"
     },
+    "exclude": [
+      "src/**/*.test.ts",
+    ],
     "include": [
       "src/**/*"
     ]
