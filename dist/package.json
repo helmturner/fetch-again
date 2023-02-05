@@ -1,0 +1,36 @@
+{
+  "name": "@helmturner/fetch-again",
+  "version": "1.0.1",
+  "description": "Your favorite fetch, now with configurable retries",
+  "main": "lib/es5/index.js",
+  "module": "lib/es6/index.js",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alecvision/fetch-again.git"
+  },
+  "optionalDependencies": {
+    "node-fetch": "^2.6.7 || 3.x"
+  },
+  "files": [
+    "lib",
+    "CHANGELOG.md",
+    "LICENSE",
+    "package.json",
+    "README.md"
+  ],
+  "keywords": [
+    "fetch",
+    "retry",
+    "fetch-again",
+    "retryable",
+    "fetch",
+    "retryable"
+  ],
+  "author": "alec@helmturner.dev",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/alecvision/fetch-again/issues"
+  },
+  "homepage": "https://github.com/alecvision/fetch-again#readme"
+}
