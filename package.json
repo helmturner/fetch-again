@@ -1,6 +1,6 @@
 {
   "name": "@helmturner/fetch-again",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Your favorite fetch, now with configurable retries.",
   "scripts": {
     "dev": "vitest watch",
