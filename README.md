@@ -6,7 +6,7 @@ A tiny, dependency-free TS library for adding retry logic to your favorite fetch
 
 ## HERE BE DRAGONS
 
-This library has not been tested for production use.
+This library is not intended for production use.
 
 ## Installation
 
